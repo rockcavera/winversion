@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.1.0"
+version       = "0.1.1"
 author        = "rockcavera"
 description   = "This package allows you to determine the running version of the Windows operating system."
 license       = "MIT"
