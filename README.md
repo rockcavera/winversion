@@ -1,4 +1,4 @@
-# pcgbasic
+# winversion
 This package allows you to determine the running version of the Windows operating system.
 
 The two main features are:
