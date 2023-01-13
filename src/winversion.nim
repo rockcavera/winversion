@@ -32,39 +32,48 @@
 ##   echo infoEx
 
 type
-  WCHAR* = distinct uint16
+  cwchar_t = distinct uint16 # cushort https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/9e7d8bfc-016c-48b7-95ae-666e103eead4
+  NTSTATUS* = int32 # clong https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/c8b512d5-70b1-4028-95f1-ec92d35cb51e
+  UCHAR* = uint8 # cuchar https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/050baef1-f978-4851-a3c7-ad701a90e54a
+  ULONG* = uint32 # culong https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/32862b84-f6e6-40f9-85ca-c4faf985b822
+  USHORT* = uint16 # cushort https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/c0618c5b-362b-4e06-9cb0-8720d240cf12
+  WCHAR* = cwchar_t # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/7df7c1d5-492c-4db4-a992-5cd9e887c5d7
 
   RTL_OSVERSIONINFOW* = object ## https://docs.microsoft.com/en-us/windows-hardware/drivers/ddi/content/wdm/ns-wdm-_osversioninfow
-    dwOSVersionInfoSize*: uint32 ## The size in bytes of an RTL_OSVERSIONINFOW object.
-    dwMajorVersion*: uint32 ## The major version number of the operating system.
-    dwMinorVersion*: uint32 ## The minor version number of the operating system.
-    dwBuildNumber*: uint32 ## The build number of the operating system.
-    dwPlatformId*: uint32 ## The operating system platform.
+    dwOSVersionInfoSize*: ULONG ## The size in bytes of an RTL_OSVERSIONINFOW object.
+    dwMajorVersion*: ULONG ## The major version number of the operating system.
+    dwMinorVersion*: ULONG ## The minor version number of the operating system.
+    dwBuildNumber*: ULONG ## The build number of the operating system.
+    dwPlatformId*: ULONG ## The operating system platform.
     szCSDVersion*: array[128, WCHAR] ## The service-pack version string.
-    
-  RTL_OSVERSIONINFOEX* = object ## https://docs.microsoft.com/en-us/windows-hardware/drivers/ddi/content/wdm/ns-wdm-_osversioninfoexw
-    dwOSVersionInfoSize*: uint32 ## The size, in bytes, of an RTL_OSVERSIONINFOEXW object.
-    dwMajorVersion*: uint32 ## The major version number of the operating system.
-    dwMinorVersion*: uint32 ## The minor version number of the operating system.
-    dwBuildNumber*: uint32 ## The build number of the operating system.
-    dwPlatformId*: uint32 ## The operating system platform.
-    szCSDVersion*: array[128, WCHAR] ## The service-pack version string.
-    wServicePackMajor*: uint16 ## The major version number of the latest service pack installed on the system.
-    wServicePackMinor*: uint16 ## The minor version number of the latest service pack installed on the system.
-    wSuiteMask*: uint16 ## The product suites available on the system.
-    wProductType*: uint8 ## The product type.
-    wReserved*: uint8 ## Reserved for future use.
 
-const 
-  VER_NT_WORKSTATION = 0x0000001'u8
-  VER_SUITE_WH_SERVER = 0x00008000'u16
-  SM_SERVERR2 = 89'i32
+  RTL_OSVERSIONINFOEXW* = object ## https://docs.microsoft.com/en-us/windows-hardware/drivers/ddi/content/wdm/ns-wdm-_osversioninfoexw
+    dwOSVersionInfoSize*: ULONG ## The size, in bytes, of an RTL_OSVERSIONINFOEXW object.
+    dwMajorVersion*: ULONG ## The major version number of the operating system.
+    dwMinorVersion*: ULONG ## The minor version number of the operating system.
+    dwBuildNumber*: ULONG ## The build number of the operating system.
+    dwPlatformId*: ULONG ## The operating system platform.
+    szCSDVersion*: array[128, WCHAR] ## The service-pack version string.
+    wServicePackMajor*: USHORT ## The major version number of the latest service pack installed on the system.
+    wServicePackMinor*: USHORT ## The minor version number of the latest service pack installed on the system.
+    wSuiteMask*: USHORT ## The product suites available on the system.
+    wProductType*: UCHAR ## The product type.
+    wReserved*: UCHAR ## Reserved for future use.
+  RTL_OSVERSIONINFOEX* {.deprecated: "Use `RTL_OSVERSIONINFOEXW` instead".} = RTL_OSVERSIONINFOEXW
+
+  PRTL_OSVERSIONINFOW* = ptr RTL_OSVERSIONINFOW | ptr RTL_OSVERSIONINFOEXW
+
+const
+  STATUS_SUCCESS = NTSTATUS(0x00000000) # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-erref/596a1078-e883-4972-9bbc-49e60bebca55
+  VER_NT_WORKSTATION = UCHAR(0x0000001)
+  VER_SUITE_WH_SERVER = USHORT(0x00008000)
+  SM_SERVERR2 = cint(89)
 
 # https://docs.microsoft.com/en-us/windows-hardware/drivers/ddi/content/wdm/nf-wdm-rtlgetversion
-proc rtlGetVersion(lpVersionInformation: ptr RTL_OSVERSIONINFOW | ptr RTL_OSVERSIONINFOEX): int32 {.stdcall, dynlib: "ntdll.dll", importc: "RtlGetVersion".}
+proc rtlGetVersion(lpVersionInformation: PRTL_OSVERSIONINFOW): NTSTATUS {.stdcall, dynlib: "ntdll.dll", importc: "RtlGetVersion".}
 
 # https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getsystemmetrics
-proc getSystemMetrics(nIndex: int32): int32 {.stdcall, dynlib: "User32.dll", importc: "GetSystemMetrics".}
+proc getSystemMetrics(nIndex: cint): cint {.stdcall, dynlib: "User32.dll", importc: "GetSystemMetrics".}
 
 proc `$`*[I: static[Positive]](a: array[I, WCHAR]): string = $cast[WideCString](unsafeAddr a[0])
 
@@ -72,17 +81,17 @@ proc getWindowsVersion*(): RTL_OSVERSIONINFOW =
   ## Returns version information about the currently running operating system.
   ##
   ## Alternative to winlean.getVersion(), but it is not the same.
-  result.dwOSVersionInfoSize = sizeof(RTL_OSVERSIONINFOW).uint32
-  if rtlGetVersion(addr result) != 0:
-    raise newException(OSError, "Call to RtlGetVersion failed")
+  result.dwOSVersionInfoSize = sizeof(RTL_OSVERSIONINFOW).ULONG
+  if rtlGetVersion(addr result) != STATUS_SUCCESS:
+    raise newException(OSError, "Call to `RtlGetVersion` failed")
 
-proc getWindowsVersionEx*(): RTL_OSVERSIONINFOEX =
+proc getWindowsVersionEx*(): RTL_OSVERSIONINFOEXW =
   ## Returns version extended information about the currently running operating system.
   ##
   ## Alternative to winlean.getVersionExW()
-  result.dwOSVersionInfoSize = sizeof(RTL_OSVERSIONINFOEX).uint32
-  if rtlGetVersion(addr result) != 0:
-    raise newException(OSError, "Call to RtlGetVersion failed")
+  result.dwOSVersionInfoSize = sizeof(RTL_OSVERSIONINFOEXW).ULONG
+  if rtlGetVersion(addr result) != STATUS_SUCCESS:
+    raise newException(OSError, "Call to `RtlGetVersion` failed")
 
 proc getWindowsOS*(): string =
   ## If it can be identified, returns the name of the running windows operating
@@ -94,14 +103,17 @@ proc getWindowsOS*(): string =
   ## service pack version number.
   ##
   ## Return values currently supported:
-  ## * Workstation: Windows 10, Windows 8.1, Windows 8, Windows 7, Windows Vista, Windows XP Professional x64 Edition, Windows XP, Windows 2000
+  ## * Workstation: Windows 11, Windows 10, Windows 8.1, Windows 8, Windows 7, Windows Vista, Windows XP Professional x64 Edition, Windows XP, Windows 2000
   ## * Server: Windows Server 2016, Windows Server 2012 R2, Windows Server 2012, Windows Server 2008 R2, Windows Server 2008, Windows Home Server, Windows Server 2003 R2, Windows Server 2003
   let i = getWindowsVersionEx()
 
   case i.dwMajorVersion
   of 10:
     if VER_NT_WORKSTATION == i.wProductType:
-      result = "Windows 10"
+      if i.dwBuildNumber >= 22000: # https://learn.microsoft.com/en-us/answers/questions/547050/win32-api-to-detect-windows-11
+        result = "Windows 11"
+      else:
+        result = "Windows 10"
     else:
       result = "Windows Server 2016"
   of 6:
@@ -137,7 +149,7 @@ proc getWindowsOS*(): string =
 
   if "" == result:
     result = $i.dwMajorVersion & "." & $i.dwMinorVersion
-  
+
   if i.wServicePackMajor > 0'u16:
     result &= " SP" & $i.wServicePackMajor
 
@@ -205,6 +217,13 @@ proc isWindows8Point1OrGreater*(): bool =
 proc isWindows10OrGreater*(): bool =
   ## Returns true if Operating System is Windows 10 or greater
   isWindowsOrGreater(10'u32, 0'u32, 0'u16)
+
+proc isWindows11OrGreater*(): bool =
+  ## Returns true if Operating System is Windows 11 or greater
+  let i = getWindowsVersionEx()
+
+  if (i.dwMajorVersion >= 10) and (i.dwBuildNumber >= 22000):
+    result = true
 
 when isMainModule:
   # Get the name of the version of the operating system running.
